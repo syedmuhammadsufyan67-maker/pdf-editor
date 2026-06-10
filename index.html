@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PDF Editor Pro</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#1e293b;overscroll-behavior:none;}
+
+/* TOPBAR */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:100;gap:8px;}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.topbar h1{font-size:15px;font-weight:600;margin:0;color:#0f172a;}
+.topbar-right{display:flex;gap:6px;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 12px;border-radius:8px;border:1.5px solid #cbd5e1;background:#fff;cursor:pointer;font-size:13px;font-weight:500;color:#334155;transition:background .15s,border-color .15s;white-space:nowrap;touch-action:manipulation;}
+.btn:hover{background:#f8fafc;border-color:#94a3b8;}
+.btn:active{background:#f1f5f9;transform:scale(0.97);}
+.btn.active{background:#eff6ff;border-color:#3b82f6;color:#1d4ed8;}
+.btn-primary{background:#2563eb;color:#fff;border-color:#2563eb;}
+.btn-primary:hover{background:#1d4ed8;border-color:#1d4ed8;}
+.btn-danger{background:#fff;color:#dc2626;border-color:#fca5a5;}
+.btn-danger:hover{background:#fff1f2;}
+.btn-icon{padding:7px 9px;}
+
+/* TOOLBAR */
+.toolbar{display:flex;flex-wrap:wrap;gap:5px;padding:8px 10px;background:#fff;border-bottom:1px solid #e2e8f0;}
+.toolbar-group{display:flex;gap:4px;align-items:center;padding-right:8px;margin-right:4px;border-right:1px solid #e2e8f0;}
+.toolbar-group:last-child{border-right:none;}
+.tool-label{font-size:11px;color:#94a3b8;font-weight:500;padding:0 2px;}
+
+/* COLOR PICKER */
+.color-swatch{width:30px;height:30px;border-radius:6px;border:1.5px solid #cbd5e1;cursor:pointer;padding:0;overflow:hidden;position:relative;}
+.color-swatch input[type=color]{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;}
+.color-preview{width:100%;height:100%;border-radius:4px;}
+
+/* FONT SIZE */
+.font-size-display{font-size:12px;font-weight:600;color:#475569;min-width:22px;text-align:center;}
+
+/* MAIN LAYOUT */
+.editor-layout{display:flex;height:calc(100vh - 106px);}
+
+/* THUMBNAILS */
+.thumbs-panel{width:90px;min-width:90px;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto;overflow-x:hidden;}
+.thumb-item{padding:6px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:background .15s;}
+.thumb-item:hover{background:#f8fafc;}
+.thumb-item.active-page{background:#eff6ff;border-left:3px solid #3b82f6;}
+.thumb-item canvas{width:100%;display:block;border-radius:4px;}
+.thumb-num{text-align:center;font-size:10px;color:#94a3b8;margin-top:3px;}
+
+/* CANVAS AREA */
+.canvas-area{flex:1;overflow:auto;background:#94a3b8;position:relative;display:flex;justify-content:center;align-items:flex-start;padding:20px;}
+
+/* PDF WRAPPER */
+#pdf-wrapper{position:relative;display:inline-block;flex-shrink:0;}
+#pdfCanvas{display:block;box-shadow:0 8px 32px rgba(0,0,0,0.3);border-radius:3px;}
+#field-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;}
+
+/* FIELDS */
+.pdf-field{position:absolute;cursor:move;user-select:none;pointer-events:all;touch-action:none;}
+.pdf-field .field-inner{padding:4px 8px;border:2px solid #3b82f6;border-radius:6px;background:rgba(255,255,255,0.92);backdrop-filter:blur(2px);min-width:60px;min-height:26px;display:inline-flex;align-items:center;box-shadow:0 2px 8px rgba(59,130,246,0.2);white-space:pre;}
+.pdf-field.selected .field-inner{border-color:#f59e0b;background:#fffbeb;box-shadow:0 2px 12px rgba(245,158,11,0.3);}
+.pdf-field .field-inner.checkbox-field{font-size:20px;min-width:32px;justify-content:center;padding:2px 6px;}
+.pdf-field .delete-btn{position:absolute;top:-10px;right:-10px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;border:none;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;line-height:1;padding:0;z-index:10;}
+.pdf-field.selected .delete-btn{display:flex;}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;color:#94a3b8;text-align:center;padding:20px;}
+.empty-state svg{opacity:0.4;}
+.empty-state p{font-size:15px;font-weight:500;margin:0;}
+.empty-state small{font-size:13px;}
+
+/* TEXT EDITOR PANEL */
+#text-editor-panel{background:#fff;border-top:1px solid #e2e8f0;padding:10px 12px;display:none;gap:8px;align-items:center;position:sticky;bottom:0;z-index:200;}
+#text-editor-panel input{flex:1;padding:10px 12px;font-size:15px;border:1.5px solid #cbd5e1;border-radius:8px;outline:none;color:#1e293b;}
+#text-editor-panel input:focus{border-color:#3b82f6;}
+#text-editor-panel .btn{flex-shrink:0;}
+
+/* TOAST */
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* PAGE INFO */
+.page-info{font-size:12px;color:#94a3b8;padding:0 8px;}
+
+/* SCROLLBAR */
+.thumbs-panel::-webkit-scrollbar,.canvas-area::-webkit-scrollbar{width:6px;height:6px;}
+.thumbs-panel::-webkit-scrollbar-track,.canvas-area::-webkit-scrollbar-track{background:transparent;}
+.thumbs-panel::-webkit-scrollbar-thumb,.canvas-area::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .thumbs-panel{width:60px;min-width:60px;}
+  .toolbar-group .tool-label{display:none;}
+  .topbar h1{font-size:13px;}
+  .btn{padding:6px 9px;font-size:12px;}
+  .canvas-area{padding:12px;}
+}
+</style>
+</head>
+<body>
+
+<div id="pdfApp">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    <h1>PDF Editor Pro</h1>
+    <span class="page-info" id="pageInfo"></span>
+  </div>
+  <div class="topbar-right">
+    <input type="file" id="fileInput" accept=".pdf" style="display:none;position:absolute;">
+    <button class="btn" onclick="triggerUpload()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Upload PDF
+    </button>
+    <button class="btn btn-primary" onclick="exportPDF()" id="exportBtn" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <!-- TOOLS -->
+  <div class="toolbar-group">
+    <span class="tool-label">Tool</span>
+    <button class="btn active" id="tool-select" onclick="setTool('select')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-7 1-4 6z"/></svg>
+      Select
+    </button>
+    <button class="btn" id="tool-text" onclick="setTool('text')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+      Text
+    </button>
+    <button class="btn" id="tool-checkbox" onclick="setTool('checkbox')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Check
+    </button>
+  </div>
+
+  <!-- TEXT STYLE -->
+  <div class="toolbar-group">
+    <span class="tool-label">Style</span>
+    <button class="btn btn-icon" onclick="fontDown()" title="Decrease font size">A−</button>
+    <span class="font-size-display" id="fontSizeDisplay">14</span>
+    <button class="btn btn-icon" onclick="fontUp()" title="Increase font size">A+</button>
+    <button class="btn btn-icon" id="boldBtn" onclick="boldToggle()" title="Bold"><b>B</b></button>
+    <div class="color-swatch" title="Text color">
+      <div class="color-preview" id="colorPreview" style="background:#1e293b;"></div>
+      <input type="color" value="#1e293b" onchange="setColor(this.value)" id="colorPicker">
+    </div>
+  </div>
+
+  <!-- ZOOM -->
+  <div class="toolbar-group">
+    <span class="tool-label">Zoom</span>
+    <button class="btn btn-icon" onclick="zoomOut()" title="Zoom out">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <span class="font-size-display" id="zoomDisplay">130%</span>
+    <button class="btn btn-icon" onclick="zoomIn()" title="Zoom in">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+  </div>
+
+  <!-- DELETE -->
+  <div class="toolbar-group">
+    <button class="btn btn-danger btn-icon" onclick="deleteSelected()" title="Delete selected">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Delete
+    </button>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="editor-layout">
+
+  <!-- THUMBNAILS -->
+  <div class="thumbs-panel" id="thumbsPanel"></div>
+
+  <!-- CANVAS AREA -->
+  <div class="canvas-area" id="canvasArea">
+    <!-- Empty state (before PDF upload) -->
+    <div class="empty-state" id="emptyState">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <p>Upload a PDF to start editing</p>
+      <small>Click "Upload PDF" in the top bar</small>
+    </div>
+
+    <!-- PDF wrapper (hidden until PDF loaded) -->
+    <div id="pdf-wrapper" style="display:none;">
+      <canvas id="pdfCanvas"></canvas>
+      <div id="field-layer"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TEXT EDIT PANEL (bottom sticky) -->
+<div id="text-editor-panel">
+  <input type="text" id="textInput" placeholder="Enter text..." autocomplete="off" autocorrect="off" spellcheck="false">
+  <button class="btn btn-primary" onclick="saveText()">Save</button>
+  <button class="btn" onclick="cancelEdit()">Cancel</button>
+</div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+<script>
+const { PDFDocument } = PDFLib;
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc || (pdfjsLib.GlobalWorkerOptions.workerSrc = '');
+
+/* ---- STATE ---- */
+let pdfJSDoc = null;
+let pdfBytes = null;
+let totalPages = 0;
+let currentPage = 1;
+let scale = 1.3;
+let currentTool = 'select';
+let pages = {};
+let selected = null;
+let editingField = null;
+let currentColor = '#1e293b';
+let currentFontSize = 14;
+let currentBold = false;
+
+/* ---- FILE UPLOAD ---- */
+function triggerUpload() {
+  var inp = document.getElementById('fileInput');
+  inp.value = '';
+  inp.click();
+}
+document.getElementById('fileInput').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  showToast('Loading PDF...');
+  try {
+    pdfBytes = await file.arrayBuffer();
+    pdfJSDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice(0) }).promise;
+    totalPages = pdfJSDoc.numPages;
+    pages = {};
+    for (let i = 1; i <= totalPages; i++) pages[i] = { fields: [] };
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('pdf-wrapper').style.display = 'inline-block';
+    document.getElementById('exportBtn').disabled = false;
+
+    await renderThumbs();
+    await renderPage(1);
+    showToast('PDF loaded ✓');
+  } catch(err) {
+    showToast('Error loading PDF');
+    console.error(err);
+  }
+  e.target.value = '';
+};
+
+/* ---- THUMBNAILS ---- */
+async function renderThumbs() {
+  const panel = document.getElementById('thumbsPanel');
+  panel.innerHTML = '';
+  for (let i = 1; i <= totalPages; i++) {
+    const pg = await pdfJSDoc.getPage(i);
+    const vp = pg.getViewport({ scale: 0.18 });
+    const c = document.createElement('canvas');
+    c.width = vp.width;
+    c.height = vp.height;
+    await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+
+    const item = document.createElement('div');
+    item.className = 'thumb-item' + (i === 1 ? ' active-page' : '');
+    item.id = 'thumb-' + i;
+    item.appendChild(c);
+    const num = document.createElement('div');
+    num.className = 'thumb-num';
+    num.textContent = i;
+    item.appendChild(num);
+    item.addEventListener('click', () => renderPage(i));
+    panel.appendChild(item);
+  }
+}
+
+/* ---- RENDER PAGE ---- */
+async function renderPage(n) {
+  if (!pdfJSDoc) return;
+  currentPage = n;
+  selected = null;
+  updateStylePanel();
+
+  document.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active-page'));
+  const thumbEl = document.getElementById('thumb-' + n);
+  if (thumbEl) {
+    thumbEl.classList.add('active-page');
+    thumbEl.scrollIntoView({ block: 'nearest' });
+  }
+
+  document.getElementById('pageInfo').textContent = n + ' / ' + totalPages;
+
+  const page = await pdfJSDoc.getPage(n);
+  const vp = page.getViewport({ scale });
+  const canvas = document.getElementById('pdfCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  renderFields();
+}
+
+/* ---- TOOL ---- */
+function setTool(t) {
+  currentTool = t;
+  ['select','text','checkbox'].forEach(name => {
+    const btn = document.getElementById('tool-' + name);
+    if (btn) btn.classList.toggle('active', name === t);
+  });
+  document.getElementById('canvasArea').style.cursor = t === 'select' ? 'default' : 'crosshair';
+}
+
+/* ---- ADD FIELD ON CLICK ---- */
+document.getElementById('canvasArea').addEventListener('pointerdown', (e) => {
+  if (currentTool === 'select') return;
+  if (!pdfJSDoc) { showToast('Upload a PDF first'); return; }
+
+  const wrapper = document.getElementById('pdf-wrapper');
+  const rect = wrapper.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  if (x < 0 || y < 0 || x > wrapper.offsetWidth || y > wrapper.offsetHeight) return;
+
+  const field = {
+    id: Date.now() + Math.random(),
+    type: currentTool,
+    x, y,
+    value: currentTool === 'text' ? 'Text' : '',
+    fontSize: currentFontSize,
+    bold: currentBold,
+    color: currentColor,
+    checked: false
+  };
+
+  pages[currentPage].fields.push(field);
+  renderFields();
+  selectField(field);
+
+  if (currentTool === 'text') openTextEditor(field);
+});
+
+/* ---- RENDER FIELDS ---- */
+function renderFields() {
+  const layer = document.getElementById('field-layer');
+  layer.innerHTML = '';
+
+  (pages[currentPage]?.fields || []).forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.className = 'pdf-field' + (selected && selected.id === f.id ? ' selected' : '');
+    wrap.style.left = f.x + 'px';
+    wrap.style.top = f.y + 'px';
+
+    const inner = document.createElement('div');
+    inner.className = 'field-inner' + (f.type === 'checkbox' ? ' checkbox-field' : '');
+
+    if (f.type === 'text') {
+      inner.textContent = f.value || 'Text';
+      inner.style.fontSize = (f.fontSize || 14) + 'px';
+      inner.style.fontWeight = f.bold ? '700' : '400';
+      inner.style.color = f.color || '#1e293b';
+    } else {
+      inner.textContent = f.checked ? '☑' : '☐';
+      inner.style.color = f.color || '#1e293b';
+    }
+
+    /* Delete button */
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.textContent = '×';
+    delBtn.title = 'Delete';
+    delBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      pages[currentPage].fields = pages[currentPage].fields.filter(x => x.id !== f.id);
+      if (selected && selected.id === f.id) { selected = null; updateStylePanel(); }
+      renderFields();
+    });
+
+    wrap.appendChild(inner);
+    wrap.appendChild(delBtn);
+    layer.appendChild(wrap);
+
+    /* CLICK HANDLER */
+    wrap.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (f.type === 'checkbox') {
+        f.checked = !f.checked;
+        renderFields();
+        return;
+      }
+      if (currentTool === 'select' || currentTool === 'text') {
+        selectField(f);
+        if (f.type === 'text') openTextEditor(f);
+      }
+    });
+
+    /* DRAG */
+    enableDrag(wrap, f);
+  });
+}
+
+/* ---- SELECT ---- */
+function selectField(f) {
+  selected = f;
+  currentFontSize = f.fontSize || 14;
+  currentBold = f.bold || false;
+  currentColor = f.color || '#1e293b';
+  updateStylePanel();
+  renderFields();
+}
+
+function updateStylePanel() {
+  document.getElementById('fontSizeDisplay').textContent = currentFontSize;
+  document.getElementById('boldBtn').classList.toggle('active', currentBold);
+  document.getElementById('colorPreview').style.background = currentColor;
+  document.getElementById('colorPicker').value = currentColor;
+  document.getElementById('zoomDisplay').textContent = Math.round(scale * 100) + '%';
+}
+
+/* ---- DRAG (FIXED - no global override bug) ---- */
+function enableDrag(el, f) {
+  let dragging = false;
+  let startX, startY, origX, origY;
+  let moved = false;
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.classList.contains('delete-btn')) return;
+    dragging = true;
+    moved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    origX = f.x;
+    origY = f.y;
+    el.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+  });
+
+  el.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    f.x = Math.max(0, origX + dx);
+    f.y = Math.max(0, origY + dy);
+    el.style.left = f.x + 'px';
+    el.style.top = f.y + 'px';
+    e.preventDefault();
+  });
+
+  el.addEventListener('pointerup', (e) => {
+    if (dragging && !moved) {
+      /* treat as click for selection */
+    }
+    dragging = false;
+  });
+}
+
+/* ---- DESELECT ON CANVAS CLICK ---- */
+document.getElementById('field-layer').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('field-layer')) {
+    selected = null;
+    updateStylePanel();
+    renderFields();
+  }
+});
+
+/* ---- TEXT EDITOR ---- */
+function openTextEditor(f) {
+  editingField = f;
+  const panel = document.getElementById('text-editor-panel');
+  const input = document.getElementById('textInput');
+  panel.style.display = 'flex';
+  input.value = f.value || '';
+  setTimeout(() => input.focus(), 50);
+}
+
+function saveText() {
+  if (editingField) {
+    editingField.value = document.getElementById('textInput').value || 'Text';
+    editingField = null;
+  }
+  document.getElementById('text-editor-panel').style.display = 'none';
+  renderFields();
+}
+
+function cancelEdit() {
+  editingField = null;
+  document.getElementById('text-editor-panel').style.display = 'none';
+}
+
+document.getElementById('textInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') saveText();
+  if (e.key === 'Escape') cancelEdit();
+});
+
+/* ---- FONT / STYLE CONTROLS ---- */
+function fontUp() {
+  currentFontSize = Math.min(72, currentFontSize + 2);
+  if (selected && selected.type === 'text') { selected.fontSize = currentFontSize; renderFields(); }
+  updateStylePanel();
+}
+
+function fontDown() {
+  currentFontSize = Math.max(8, currentFontSize - 2);
+  if (selected && selected.type === 'text') { selected.fontSize = currentFontSize; renderFields(); }
+  updateStylePanel();
+}
+
+function boldToggle() {
+  currentBold = !currentBold;
+  if (selected && selected.type === 'text') { selected.bold = currentBold; renderFields(); }
+  updateStylePanel();
+}
+
+function setColor(c) {
+  currentColor = c;
+  document.getElementById('colorPreview').style.background = c;
+  if (selected) { selected.color = c; renderFields(); }
+}
+
+/* ---- ZOOM ---- */
+function zoomIn() {
+  scale = Math.min(3, parseFloat((scale + 0.2).toFixed(1)));
+  renderPage(currentPage);
+  updateStylePanel();
+}
+
+function zoomOut() {
+  scale = Math.max(0.4, parseFloat((scale - 0.2).toFixed(1)));
+  renderPage(currentPage);
+  updateStylePanel();
+}
+
+/* ---- DELETE ---- */
+function deleteSelected() {
+  if (!selected) { showToast('Select a field first'); return; }
+  pages[currentPage].fields = pages[currentPage].fields.filter(x => x.id !== selected.id);
+  selected = null;
+  updateStylePanel();
+  renderFields();
+  showToast('Deleted');
+}
+
+/* ---- EXPORT ---- */
+async function exportPDF() {
+  if (!pdfBytes) return;
+  showToast('Exporting...');
+  try {
+    const pdf = await PDFDocument.load(pdfBytes);
+    const pdfPages = pdf.getPages();
+
+    for (let i = 1; i <= totalPages; i++) {
+      const pg = pdfPages[i - 1];
+      const pgHeight = pg.getHeight();
+
+      for (const f of (pages[i]?.fields || [])) {
+        const px = f.x / scale;
+        const py = pgHeight - (f.y / scale);
+
+        if (f.type === 'text' && f.value) {
+          pg.drawText(f.value, {
+            x: px,
+            y: py - (f.fontSize || 14) * 0.2,
+            size: f.fontSize || 14,
+            color: hexToRgb(f.color || '#000000'),
+          });
+        }
+
+        if (f.type === 'checkbox') {
+          pg.drawText(f.checked ? '✓' : '□', {
+            x: px,
+            y: py - 14,
+            size: 16,
+            color: hexToRgb(f.color || '#000000'),
+          });
+        }
+      }
+    }
+
+    const bytes = await pdf.save();
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'edited-document.pdf';
+    a.click();
+    showToast('Export complete ✓');
+  } catch(err) {
+    showToast('Export failed');
+    console.error(err);
+  }
+}
+
+/* ---- HELPERS ---- */
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16)/255;
+  const g = parseInt(hex.slice(3,5),16)/255;
+  const b = parseInt(hex.slice(5,7),16)/255;
+  return { type: 'rgb', red: r, green: g, blue: b };
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ---- KEYBOARD SHORTCUTS ---- */
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && selected) deleteSelected();
+  if (e.key === 't' || e.key === 'T') setTool('text');
+  if (e.key === 's' || e.key === 'S') setTool('select');
+  if (e.key === 'c' || e.key === 'C') setTool('checkbox');
+  if (e.key === '+' || e.key === '=') zoomIn();
+  if (e.key === '-') zoomOut();
+});
+</script>
+</body>
+</html>
