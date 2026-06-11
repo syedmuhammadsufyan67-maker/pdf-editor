@@ -672,6 +672,7 @@ async function exportPDF() {
     setProgress(true, 'Saving file...', 96);
     const bytes = await pdf.save();
     setProgress(false);
+    showToast('PDF ready — click Download');
     triggerDownload(bytes, originalFilename + '-edited.pdf');
 
   } catch(err) {
@@ -681,90 +682,77 @@ async function exportPDF() {
   }
 }
 
-/* ---- DOWNLOAD — WordPress/iframe safe ---- */
+/* ---- DOWNLOAD — WordPress/Elementor safe ---- */
+/* Root cause: programmatic a.click() silently fails inside WP iframes.
+   Fix: convert bytes → base64 data URI, then show a real visible anchor
+   that the USER clicks — this always works because it is a real user gesture. */
 function triggerDownload(bytes, filename) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
-
-  // Method 1: Standard anchor click (works in most browsers directly)
-  try {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.style.display = 'none';
-    // Append to TOP document if inside iframe (WordPress/Elementor)
-    const targetDoc = (window.top && window.top.document) ? window.top.document : document;
-    targetDoc.body.appendChild(a);
-    a.click();
-    targetDoc.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 8000);
-    showToast('Export complete ✓');
-    return;
-  } catch(e1) {
-    console.warn('Method 1 failed:', e1);
-  }
-
-  // Method 2: window.open with blob URL (some iframe environments allow this)
-  try {
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (w) {
-      setTimeout(() => URL.revokeObjectURL(url), 8000);
-      showToast('PDF opened in new tab — save it from there');
-      return;
-    }
-  } catch(e2) {
-    console.warn('Method 2 failed:', e2);
-  }
-
-  // Method 3: msSaveBlob (old Edge/IE)
-  if (navigator.msSaveBlob) {
-    try { navigator.msSaveBlob(blob, filename); showToast('Export complete ✓'); return; } catch(e3) {}
-  }
-
-  // Method 4: Base64 data URI fallback — show modal with direct link
-  try {
-    const reader = new FileReader();
-    reader.onload = function() {
-      showDownloadModal(reader.result, filename);
-    };
-    reader.readAsDataURL(blob);
-  } catch(e4) {
-    showToast('Download failed — try a different browser');
-  }
+  const reader = new FileReader();
+  reader.onload = function() {
+    showDownloadModal(reader.result, filename);
+  };
+  reader.onerror = function() {
+    showToast('Download failed — please try again');
+  };
+  reader.readAsDataURL(blob);
 }
 
-/* ---- FALLBACK DOWNLOAD MODAL ---- */
+/* ---- DOWNLOAD MODAL ---- */
 function showDownloadModal(dataUrl, filename) {
-  // Remove old modal if any
-  const old = document.getElementById('dlModal');
+  const old = document.getElementById('pdfDlModal');
   if (old) old.remove();
 
   const modal = document.createElement('div');
-  modal.id = 'dlModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;';
-  modal.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:32px;max-width:360px;width:90%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.35);">
-      <div style="width:52px;height:52px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      </div>
-      <p style="font-size:16px;font-weight:700;color:#0f172a;margin:0 0 6px;">PDF Ready!</p>
-      <p style="font-size:13px;color:#64748b;margin:0 0 20px;">Tap the button below to download your edited PDF.</p>
-      <a href="${dataUrl}" download="${filename}"
-        style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#2563eb;color:#fff;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;margin-bottom:12px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download ${filename}
-      </a>
-      <br>
-      <button onclick="document.getElementById('dlModal').remove()"
-        style="background:none;border:none;font-size:13px;color:#94a3b8;cursor:pointer;padding:6px;">
-        Close
-      </button>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-  showToast('PDF ready — tap Download');
+  modal.id = 'pdfDlModal';
+  modal.style.cssText = [
+    'position:fixed',
+    'top:0','left:0','right:0','bottom:0',
+    'background:rgba(15,23,42,0.72)',
+    'z-index:2147483647',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'padding:20px'
+  ].join(';');
+
+  modal.innerHTML =
+    '<div style="background:#fff;border-radius:18px;padding:36px 32px;max-width:360px;width:100%;text-align:center;">' +
+      '<div style="width:56px;height:56px;background:#eff6ff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">' +
+        '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+      '</div>' +
+      '<p style="font-size:17px;font-weight:700;color:#0f172a;margin:0 0 8px;">PDF Ready!</p>' +
+      '<p style="font-size:13px;color:#64748b;margin:0 0 22px;line-height:1.5;">Your edited PDF is ready.<br>Click the button below to download.</p>' +
+      '<a href="' + dataUrl + '" download="' + filename + '" ' +
+        'style="display:inline-flex;align-items:center;gap:8px;padding:13px 28px;' +
+        'background:#2563eb;color:#fff;border-radius:10px;font-size:15px;' +
+        'font-weight:600;text-decoration:none;" ' +
+        'onclick="setTimeout(function(){document.getElementById(\'pdfDlModal\').remove();},400)">' +
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' +
+        'Download PDF' +
+      '</a>' +
+      '<br><br>' +
+      '<button onclick="document.getElementById(\'pdfDlModal\').remove()" ' +
+        'style="background:none;border:none;font-size:13px;color:#94a3b8;cursor:pointer;padding:6px 12px;">' +
+        'Cancel' +
+      '</button>' +
+    '</div>';
+
+  /* Try appending to top-level document first (escapes iframe) */
+  try {
+    const target = (window.top && window.top.document && window.top.document.body)
+      ? window.top.document.body
+      : document.body;
+    target.appendChild(modal);
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) modal.remove();
+    });
+  } catch(e) {
+    document.body.appendChild(modal);
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) modal.remove();
+    });
+  }
 }
 
 /* ---- HELPERS ---- */
